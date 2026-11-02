@@ -53,14 +53,63 @@ function screenLogin(msg){
     lsSet(STAY_KEY,stay.checked?'1':'0');purgeAuthStores();lsSet(EMAIL_KEY,em.value.trim());
     sb.auth.signInWithPassword({email:em.value.trim(),password:pw.value}).then(function(r){
       pw.value='';
-      if(r.error){busy(go,false);setErr(/network|fetch/i.test(r.error.message||'')?'Cannot reach the cloud. Check your internet and try again.':'Wrong email or password.');return}
+      if(r.error){busy(go,false);var m=r.error.message||'';setErr(/network|fetch/i.test(m)?'Cannot reach the cloud. Check your internet and try again.':(/not confirmed/i.test(m)||r.error.code==='email_not_confirmed')?'Please confirm your email first (check your inbox), then sign in.':'Wrong email or password.');return}
       afterAuth();
     },function(){busy(go,false);setErr('Cannot reach the cloud. Check your internet and try again.')});
   }},
     lab('Email',em,'aemail'),lab('Password',pw,'apass'),
     h('label',{class:'acheck'},stay,h('span',{},'Stay logged in on this device'),h('small',{},'You will still need your vault passphrase (or PIN) to open the map.')),
-    err,go);
+    err,go,
+    h('div',{class:'asep'},'New here?'),
+    h('div',{class:'arow'},link('Create account',function(){screenSignup()},'asignup')));
   showAuth('Sign in','Step 1 of 2: your account. Then you unlock the map with your vault passphrase.',form);
+}
+
+/* 1b. create an account (sign-ups are open: every account only ever sees its own encrypted vault) */
+var MIN_ACCOUNT_PW=8;
+function signupErrorText(e){
+  var m=(e&&e.message)||'',c=(e&&e.code)||'',st=e&&e.status;
+  if(c==='signup_disabled'||/sign-?ups? (are |is )?(not allowed|disabled|closed)|signups? not allowed/i.test(m))return 'Sign-ups are currently closed.';
+  if(c==='user_already_exists'||c==='email_exists'||/already (been )?registered|already exists/i.test(m))return 'That email already has an account. Use Sign in instead.';
+  if(c==='weak_password'||/password/i.test(m))return 'That password is too weak. Use at least '+MIN_ACCOUNT_PW+' characters, ideally a sentence or a mix of letters and numbers.';
+  if(c==='validate_failed'||c==='email_address_invalid'||/valid email|invalid.*email|email.*invalid/i.test(m))return 'That email address does not look right.';
+  if(c==='over_email_send_rate_limit'||c==='over_request_rate_limit'||st===429||/rate limit/i.test(m))return 'Too many tries. Wait a few minutes and try again.';
+  if(/network|fetch/i.test(m))return 'Cannot reach the cloud. Check your internet and try again.';
+  return 'Could not create the account. Please try again.';
+}
+function screenSignup(){
+  var em=h('input',{type:'email',autocomplete:'username',value:lsGet(EMAIL_KEY)||'',required:true}),
+      pw=h('input',{type:'password',autocomplete:'new-password',required:true}),
+      pw2=h('input',{type:'password',autocomplete:'new-password',required:true}),
+      go=h('button',{class:'primary',id:'asignupgo',type:'submit'},'Create account'),err=errBox();
+  var form=h('form',{id:'signupform',onsubmit:function(e){
+    e.preventDefault();setErr('');
+    var email=em.value.trim();
+    if(!email||email.indexOf('@')<1){setErr('Enter a valid email address.');return}
+    if(pw.value.length<MIN_ACCOUNT_PW){setErr('Use at least '+MIN_ACCOUNT_PW+' characters for your password.');return}
+    if(pw.value!==pw2.value){setErr('The two passwords do not match.');return}
+    busy(go,true);
+    if(lsGet(STAY_KEY)===null)lsSet(STAY_KEY,'1');
+    purgeAuthStores();lsSet(EMAIL_KEY,email);
+    sb.auth.signUp({email:email,password:pw.value}).then(function(r){
+      if(r.error){busy(go,false);setErr(signupErrorText(r.error));return}
+      var d=r.data||{};
+      if(d.user&&Array.isArray(d.user.identities)&&d.user.identities.length===0){busy(go,false);setErr(signupErrorText({code:'user_already_exists'}));return}
+      pw.value=pw2.value='';
+      if(d.session){afterAuth();return}
+      screenCheckEmail(email);
+    },function(){busy(go,false);setErr('Cannot reach the cloud. Check your internet and try again.')});
+  }},
+    lab('Email',em,'asemail'),lab('Password',pw,'aspass'),lab('Type the password again',pw2,'aspass2'),
+    h('div',{class:'muted'},'This is your account login. Next you will make a separate vault passphrase that locks your map in this browser. Everyone only ever sees their own encrypted map.'),
+    err,go,
+    h('div',{class:'arow'},link('Back to sign in',function(){screenLogin()},'abacklogin')));
+  showAuth('Create account','Step 1 of 2: your account. Then you make your vault passphrase.',form);
+}
+function screenCheckEmail(email){
+  showAuth('Check your email','We sent a link to '+email+'.',h('div',{},
+    h('div',{class:'warnbox',id:'acheck'},'Check your email to confirm, then sign in.'),
+    h('div',{class:'arow'},h('button',{class:'primary',id:'abacksignin',onclick:function(){screenLogin()}},'Back to sign in'))));
 }
 
 /* 2. after sign-in: check the server still accepts this session, then two-step code if switched on */
@@ -114,10 +163,18 @@ function screenCreate(){
   file.onchange=function(){
     var f=file.files[0];if(!f)return;var r=new FileReader();
     r.onload=function(){readBackupText(r.result,function(raw){
-      try{pendingSeed=sanitize(raw);imp.textContent='Backup ready: '+(pendingSeed.people.length-1)+' people will be your starting map.'}catch(e){setErr('Could not read that backup: '+e.message)}
+      try{pendingSeed=sanitize(raw);demoMsg.textContent='';imp.textContent='Backup ready: '+(pendingSeed.people.length-1)+' people will be your starting map.'}catch(e){setErr('Could not read that backup: '+e.message)}
     });file.value=''};
     r.readAsText(f);
   };
+  var demoMsg=h('div',{class:'muted',id:'ademomsg'});
+  var demo=h('div',{class:'demobox',id:'ademobox'},
+    h('div',{},'Just looking around? See the whole app with 19 made-up people.'),
+    h('div',{class:'arow'},h('button',{type:'button',id:'ademo',class:'primary',onclick:function(){
+      pendingSeed=sanitize(exampleData());imp.textContent='';
+      demoMsg.textContent='Demo data selected: 19 fake people will be your starting map. Now choose a passphrase below and press Create my vault.';
+      p1.focus();
+    }},'Load demo data')),demoMsg);
   var form=h('form',{id:'createform',onsubmit:function(e){
     e.preventDefault();setErr('');
     if(p1.value.length<PMCrypto.MIN_PASSPHRASE){setErr('Use at least '+PMCrypto.MIN_PASSPHRASE+' characters. A sentence or four random words works well.');return}
@@ -130,6 +187,7 @@ function screenCreate(){
       pendingSeed=null;p1.value=p2.value='';enterApp(data,true);
     },function(){busy(go,false);go.textContent='Create my vault';setErr('Cannot reach the cloud, or it refused. Check your internet and try again.')});
   }},
+    demo,
     lab('Vault passphrase',p1,'apass1'),lab('Type it again',p2,'apass2'),
     h('div',{class:'warnbox',id:'awarn'},h('b',{},'This passphrase cannot be recovered. '),'Your map is scrambled in this browser before it is saved, with a key made from this passphrase. Nobody else has the key: not the app maker, not the cloud company, not your helper. If you forget it, your data is gone for good. Write it down somewhere safe, and keep an encrypted backup file.'),
     h('label',{class:'acheck'},ack,h('span',{},'I understand: if I forget it, nobody can get my data back.')),

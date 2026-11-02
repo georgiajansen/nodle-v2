@@ -15,9 +15,9 @@ function createMock(opts){
   opts=opts||{};
   var persist=opts.persist;                // optional storage (browser: localStorage) so the fake DB survives page reloads
   var DBKEY='mock.db';
-  var db={rows:[],mfa:{enrolled:false,factorId:'f-1',verified:false},netDown:false,beforeWrite:null,log:[],signedOutGlobal:0,signedOutLocal:0,signIns:0,failSignIn:false};
-  if(persist){try{var raw=persist.getItem(DBKEY);if(raw){var o=JSON.parse(raw);db.rows=o.rows||[];db.mfa=o.mfa||db.mfa}}catch(e){}}
-  function save(){if(persist)persist.setItem(DBKEY,JSON.stringify({rows:db.rows,mfa:db.mfa}))}
+  var db={rows:[],mfa:{enrolled:false,factorId:'f-1',verified:false},netDown:false,beforeWrite:null,log:[],signedOutGlobal:0,signedOutLocal:0,signIns:0,failSignIn:false,users:[],signupsOpen:true,confirmEmail:false,signUps:0,signUpError:null};
+  if(persist){try{var raw=persist.getItem(DBKEY);if(raw){var o=JSON.parse(raw);db.rows=o.rows||[];db.mfa=o.mfa||db.mfa;db.users=o.users||[];db.signupsOpen=o.signupsOpen!==false;db.confirmEmail=!!o.confirmEmail}}catch(e){}}
+  function save(){if(persist)persist.setItem(DBKEY,JSON.stringify({rows:db.rows,mfa:db.mfa,users:db.users,signupsOpen:db.signupsOpen,confirmEmail:db.confirmEmail}))}
   function clone(x){return JSON.parse(JSON.stringify(x))}
 
   function createClient(url,key,options){
@@ -32,11 +32,30 @@ function createMock(opts){
       signInWithPassword:function(c){
         db.signIns++;
         if(db.netDown)return Promise.resolve({data:{},error:{message:'Failed to fetch',name:'AuthRetryableFetchError'}});
-        if(db.failSignIn||c.email!==USER.email||c.password!==USER.password)return Promise.resolve({data:{user:null,session:null},error:{message:'Invalid login credentials',status:400}});
-        var s={access_token:'mock-token',user:{id:USER.id,email:USER.email}};
+        var u=c.email===USER.email&&c.password===USER.password?{id:USER.id,email:USER.email,confirmed:true}:db.users.filter(function(x){return x.email===c.email&&x.password===c.password})[0];
+        if(db.failSignIn||!u)return Promise.resolve({data:{user:null,session:null},error:{message:'Invalid login credentials',status:400,code:'invalid_credentials'}});
+        if(!u.confirmed)return Promise.resolve({data:{user:null,session:null},error:{message:'Email not confirmed',status:400,code:'email_not_confirmed'}});
+        var s={access_token:'mock-token',user:{id:u.id,email:u.email}};
         storage.setItem(skey,JSON.stringify(s));aal.current='aal1';
         setTimeout(function(){emit('SIGNED_IN',s)},0);
         return Promise.resolve({data:{user:s.user,session:s},error:null});
+      },
+      signUp:function(c){
+        db.signUps++;
+        if(db.netDown)return Promise.resolve({data:{user:null,session:null},error:{message:'Failed to fetch',name:'AuthRetryableFetchError'}});
+        if(db.signUpError)return Promise.resolve({data:{user:null,session:null},error:db.signUpError});
+        if(!db.signupsOpen)return Promise.resolve({data:{user:null,session:null},error:{message:'Signups not allowed for this instance',status:422,code:'signup_disabled'}});
+        if((c.password||'').length<6)return Promise.resolve({data:{user:null,session:null},error:{message:'Password should be at least 6 characters.',status:422,code:'weak_password'}});
+        if(c.email===USER.email||db.users.some(function(x){return x.email===c.email}))
+          return Promise.resolve({data:{user:{id:'fake',email:c.email,identities:[]},session:null},error:null});   // like real Supabase with email confirmation: no error, empty identities
+        var u={id:'00000000-0000-4000-8000-'+('000000000000'+(db.users.length+2)).slice(-12),email:c.email,password:c.password,confirmed:!db.confirmEmail};
+        db.users.push(u);save();
+        var user={id:u.id,email:u.email,identities:[{provider:'email'}]};
+        if(db.confirmEmail)return Promise.resolve({data:{user:user,session:null},error:null});
+        var s={access_token:'mock-token',user:{id:u.id,email:u.email}};
+        storage.setItem(skey,JSON.stringify(s));aal.current='aal1';
+        setTimeout(function(){emit('SIGNED_IN',s)},0);
+        return Promise.resolve({data:{user:user,session:s},error:null});
       },
       getSession:function(){return Promise.resolve({data:{session:readSession()},error:null})},
       getUser:function(){var s=readSession();return Promise.resolve(s?{data:{user:s.user},error:null}:{data:{user:null},error:{message:'no session'}})},

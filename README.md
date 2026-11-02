@@ -7,6 +7,8 @@ private "character / risk" guide. Amber-on-black terminal look. It runs as a **s
 Plain HTML/CSS/JavaScript. No framework, no npm packages. Everything is in `src/`; `node build.js` makes the site in `dist/`.
 
 ## How the privacy works
+- **Sign-ups are open:** anyone can use "Create account" on the login screen (email + password, confirmed by email if the Supabase project requires it). Each account's data is isolated by row-level security and encrypted in the browser with that person's own passphrase. Sign-ups can be closed again with one Supabase switch (the app then says "Sign-ups are currently closed.").
+- The first-run passphrase screen has a **Load demo data** button that starts the map with 19 fake people.
 - You log in with email + password (Supabase Auth). Then you unlock with a separate **vault passphrase**.
 - The passphrase never leaves the browser. It makes a key with **PBKDF2-SHA256 (600,000 rounds, random 16-byte salt)**;
   the whole dataset is encrypted as **one blob with AES-256-GCM** (fresh random IV on each save, bound to your user id).

@@ -14,11 +14,15 @@ Nothing here costs money on the free tiers. Total time: about 15 minutes.
    password manager; the app never needs it.
 2. When the project is ready, open **SQL Editor → New query**. Open the file `supabase/schema.sql` from this folder,
    copy everything, paste it in, press **Run**. You should see "Success". (Safe to run twice.)
-3. **Turn off public sign-ups** (so nobody else can make an account):
-   **Authentication → Sign In / Providers → Email** (older dashboards: *Authentication → Providers → Email*, or
-   *Authentication → Settings*). Switch **"Allow new users to sign up"** OFF and save.
-4. **Create your one login:** **Authentication → Users → Add user → Create new user**.
-   Enter your email and a long password, and tick **Auto Confirm User**. This is your *account password*.
+3. **Sign-ups are open (public self sign-up).** Anyone can create their own account from the app's "Create account" link
+   (for example employers looking at a portfolio demo). Keep **Authentication → Sign In / Providers → Email → "Allow new users to sign up"** switched **ON**.
+   - Each account only ever sees its **own** encrypted vault row (row-level security in `schema.sql`), and the contents are encrypted in the browser with that person's own passphrase.
+   - **Email confirmation:** if "Confirm email" is ON in Supabase, a new user sees "Check your email to confirm, then sign in." and must click the link first.
+     If it is OFF, they go straight on to making their vault passphrase. Either works. The free built-in mailer is rate limited, so ON can fail under load; OFF is simpler for a demo.
+   - **To close sign-ups again** (the app then says "Sign-ups are currently closed."): switch "Allow new users to sign up" OFF and save. Existing accounts keep working.
+   - Free-tier note: strangers can create accounts, which uses a little of your free Supabase quota (the free tier allows 50,000 monthly active users and 500 MB of database; each vault is one small row). Check Authentication → Users now and then and delete spam accounts.
+4. **Your own login:** create your account the same way (the app's **Create account** link), or add it yourself in
+   **Authentication → Users → Add user → Create new user** (tick **Auto Confirm User**). This is your *account password*.
    (It is different from the vault passphrase you choose the first time you open the app.)
 5. **Copy two values** for Vercel: **Project Settings → API** (or the **Connect** button at the top).
    - **Project URL**, looks like `https://abcdefghijkl.supabase.co`
@@ -65,7 +69,7 @@ npx vercel deploy --prod --token $VERCEL_TOKEN
 4. Click **Save backup** (encrypted) once and keep the file somewhere safe. Free Supabase projects have no automatic backups.
 5. Optional: Settings → **Security** → set a **PIN**, turn on **two-step sign-in**, change the auto-lock time.
 
-Use **Load demo data** (Settings → Data) to play with 19 *fake* people first. Clear it before you add real people.
+On the first-run passphrase screen there is a **Load demo data** button: it starts your map with 19 *fake* people so you can see everything straight away (you still choose a passphrase). You can also load or clear the demo later in Settings → Data. Clear it before you add real people.
 
 ---
 
@@ -75,6 +79,7 @@ Use **Load demo data** (Settings → Data) to play with 19 *fake* people first. 
 |---|---|
 | Names, notes, ratings, risk, everything about your contacts | **Only you.** It is encrypted in your browser (AES-256-GCM, key from your passphrase via PBKDF2-SHA256, 600,000 rounds) before it leaves. Supabase stores unreadable text. |
 | Your vault passphrase | Never leaves the browser. Never stored (unless you set a PIN, see below). |
+| Other people's data | Nobody else with an account can read your row (row-level security), and even if they could, it is encrypted with your passphrase. |
 | That you have an account, when you last saved, roughly how big the data is, your IP address | Supabase and Vercel can see this (it is normal metadata). |
 | The website code itself | Served by Vercel. Anyone who controls your Vercel/GitHub account could change the code to steal your passphrase. **Turn on two-step login for Vercel, GitHub and Supabase.** |
 
@@ -106,6 +111,6 @@ These use a fake Supabase. Things only a real project can prove are listed in `R
 ## For an assistant doing this with tokens
 You need: a **Supabase personal access token** (Account → Access Tokens) *or* the project's URL + anon key + a way to run `schema.sql`;
 and a **Vercel token** (Account Settings → Tokens). With the Supabase token the whole of Part 1 can be done through the Management API
-(create project, run `schema.sql` with `POST /v1/projects/{ref}/database/query`, set `disable_signup: true` with `PATCH /v1/projects/{ref}/config/auth`,
+(create project, run `schema.sql` with `POST /v1/projects/{ref}/database/query`, leave `disable_signup: false` (sign-ups are open; set it to `true` to close them) with `PATCH /v1/projects/{ref}/config/auth`,
 read the anon key from `GET /v1/projects/{ref}/api-keys`). Creating the login user needs the service-role key **once**, from the same API;
 do not store it anywhere. Better: have Georgia choose her own account password in the dashboard (Authentication → Users → Add user).
