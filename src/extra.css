@@ -139,3 +139,9 @@ body.preauth #head,body.preauth main,body.preauth #ticker{visibility:hidden}
 
 .demobox{border:1px dashed var(--accent);padding:8px 10px;margin:4px 0 10px;font-size:12.5px}
 .demobox .arow{margin-top:6px}
+
+/* evidence log rows: tag, date and note spaced apart */
+.evrow{display:flex;align-items:center;gap:12px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.evrow>.good,.evrow>.bad{min-width:40px;font-size:11px;letter-spacing:.08em;font-weight:600}
+.evrow>.fixed{flex:0 0 auto}
+.evrow>.grow{flex:1 1 auto;min-width:0;overflow-wrap:anywhere}
