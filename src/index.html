@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="{{CSP}}">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#000000">
+<title>Nodle</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23000'/%3E%3Ccircle cx='16' cy='16' r='7' fill='none' stroke='%23ffb000' stroke-width='3'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="term t1 preauth">
+<header id="head">
+  <div id="topline">
+    <h1>Nodle</h1>
+    <div id="stats"></div>
+    <div id="clock" class="mono"></div>
+  </div>
+  <div id="toolbar">
+    <span class="lock" id="lockbadge" title="Cloud status"></span>
+    <input type="search" id="search" placeholder="Search people…  ( / )" autocomplete="off" aria-label="Search people">
+    <span class="spacer"></span>
+    <button id="btnAdd" class="primary" title="Add a person (N)">+ Add person</button>
+    <button id="btnTidy" title="Spread everyone out neatly">Tidy up</button>
+    <button id="btnBackup" title="Save a backup file">Save backup</button>
+    <button id="btnImport" title="Load a backup file">Load backup</button>
+    <button id="btnLock" title="Lock the map (L)">Lock</button>
+    <button id="btnHelp" title="Keyboard shortcuts (?)">?</button>
+    <input type="file" id="file" accept=".json,application/json" hidden>
+  </div>
+</header>
+<main>
+  <div id="stage">
+    <svg id="svg" xmlns="http://www.w3.org/2000/svg"><g id="vp"><g id="links"></g><g id="nodes"></g></g></svg>
+    <div id="legend"></div>
+    <div id="readout"></div>
+    <div id="timeline"><span>Web growth</span><input type="range" id="tlrange" min="0" max="100" value="100" aria-label="Show people by the date we met"><span class="tl mono" id="tllabel">all time</span><button id="tlplay" class="small" title="Play from the start">Play</button></div>
+    <div id="zoom"><button id="zin" title="Zoom in">+</button><button id="zout" title="Zoom out">−</button><button id="zfit" title="Fit everyone on screen (F)">⤢</button></div>
+    <div id="hint">Drag a circle to move it · drag the background to pan · scroll or pinch to zoom · click a circle to edit</div>
+  </div>
+  <aside id="panel"><div class="tabs" id="tabs"></div><div id="body"></div></aside>
+</main>
+<footer id="ticker"><div id="tickwrap"><div id="tickmove"></div></div><div id="keys"></div></footer>
+<div id="toast"></div>
+<div id="modal"><div class="mbox" id="mbox"></div></div>
+<div id="auth" role="dialog" aria-modal="true" aria-labelledby="atitle"><div class="abox" id="abox"></div></div>
+<noscript><p style="padding:20px;color:#ffb000;font-family:monospace">Nodle needs JavaScript.</p></noscript>
+<script src="config.js"></script>
+<script src="vendor/supabase.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
